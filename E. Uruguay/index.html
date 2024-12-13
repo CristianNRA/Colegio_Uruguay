@@ -1,0 +1,237 @@
+<?php
+// Conexión a la base de datos
+$servername = "sql107.infinityfree.com";  // Nombre del servidor
+$username = "if0_37903544";              // Nombre de usuario
+$password = "Uruguay2024";               // Contraseña
+$dbname = "if0_37903544_colegio_uruguay_db";
+
+// Crear conexión
+$conn = new mysqli($servername, $username, $password, $dbname);
+
+// Verificar la conexión
+if ($conn->connect_error) {
+    die("Conexión fallida: " . $conn->connect_error);
+}
+
+// Agregar alumno a la base de datos
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['register'])) {
+    // Obtener los datos del formulario
+    $nombre = $_POST['nombre'];
+    $rut = $_POST['rut'];
+    $curso = $_POST['curso'];
+
+    // Insertar el alumno en la base de datos
+    $sql = "INSERT INTO alumnos (nombre, rut, curso) VALUES ('$nombre', '$rut', '$curso')";
+    if ($conn->query($sql) === TRUE) {
+        echo "Alumno registrado correctamente.";
+    } else {
+        echo "Error: " . $sql . "<br>" . $conn->error;
+    }
+}
+
+// Buscar alumno por RUT
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['search_rut'])) {
+    $search_rut = $_POST['search_rut'];
+    $sql = "SELECT * FROM alumnos WHERE rut = '$search_rut'";
+    $result = $conn->query($sql);
+
+    if ($result->num_rows > 0) {
+        $alumno = $result->fetch_assoc();
+        $alumno_id = $alumno['id'];
+
+        // Mostrar los datos del alumno
+        echo "<h3>Datos del Alumno</h3>";
+        echo "Nombre: " . $alumno['nombre'] . "<br>";
+        echo "RUT: " . $alumno['rut'] . "<br>";
+        echo "Curso: " . $alumno['curso'] . "<br>";
+
+        // Consultar las personas autorizadas
+        $sql_autorizados = "SELECT * FROM autorizados WHERE alumno_id = '$alumno_id'";
+        $result_autorizados = $conn->query($sql_autorizados);
+
+        echo "<h3>Personas Autorizadas</h3>";
+        while ($autorizado = $result_autorizados->fetch_assoc()) {
+            echo "Nombre: " . $autorizado['nombre_autorizado'] . "<br>";
+            echo "RUT: " . $autorizado['rut_autorizado'] . "<br>";
+        }
+    } else {
+        echo "No se encontró un alumno con ese RUT.";
+    }
+}
+
+// Mostrar alumnos por curso
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['course_select'])) {
+    $course_select = $_POST['course_select'];
+    $sql = "SELECT * FROM alumnos WHERE curso = '$course_select'";
+    $result = $conn->query($sql);
+
+    if ($result->num_rows > 0) {
+        echo "<h3>Alumnos del Curso: $course_select</h3>";
+        echo "<table>";
+        echo "<tr><th>Nombre</th><th>RUT</th><th>Acciones</th></tr>";
+        while ($alumno = $result->fetch_assoc()) {
+            echo "<tr>";
+            echo "<td>" . $alumno['nombre'] . "</td>";
+            echo "<td>" . $alumno['rut'] . "</td>";
+            echo "<td>
+                <a href='change_course.php?alumno_id=" . $alumno['id'] . "'>Cambiar Curso</a> | 
+                <a href='delete_student.php?alumno_id=" . $alumno['id'] . "'>Eliminar</a>
+            </td>";
+            echo "</tr>";
+        }
+        echo "</table>";
+    } else {
+        echo "No hay alumnos en este curso.";
+    }
+}
+
+// Registrar atraso
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_delay'])) {
+    $alumno_rut = $_POST['alumno_rut'];
+    $fecha = $_POST['fecha'];
+    $hora = $_POST['hora'];
+    $justificativo = $_POST['justificativo'];
+
+    // Buscar al alumno por RUT
+    $sql = "SELECT id FROM alumnos WHERE rut = '$alumno_rut'";
+    $result = $conn->query($sql);
+
+    if ($result->num_rows > 0) {
+        $alumno = $result->fetch_assoc();
+        $alumno_id = $alumno['id'];
+
+        // Insertar el atraso en la base de datos
+        $stmt = $conn->prepare("INSERT INTO atrasos (alumno_id, fecha, hora, justificativo) VALUES (?, ?, ?, ?)");
+        $stmt->bind_param("isss", $alumno_id, $fecha, $hora, $justificativo);
+        $stmt->execute();
+
+        echo "Atraso registrado correctamente.";
+    } else {
+        echo "No se encontró un alumno con ese RUT.";
+    }
+}
+
+$conn->close();
+?>
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Gestión Escolar</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="tabs">
+        <button class="tablink" onclick="openTab(event, 'register')">Registrar</button>
+        <button class="tablink" onclick="openTab(event, 'search')">Buscar</button>
+        <button class="tablink" onclick="openTab(event, 'course')">Lista de Curso</button>
+        <button class="tablink" onclick="openTab(event, 'delays')">Atrasos</button>
+    </div>
+
+    <!-- Pestaña Registrar -->
+    <div class="content" id="register">
+        <h2>Registrar Alumno</h2>
+        <form method="POST">
+            <label for="nombre">Nombre:</label>
+            <input type="text" name="nombre" required>
+            <label for="rut">RUT:</label>
+            <input type="text" name="rut" id="rut" pattern="\d{1,2}\.\d{3}\.\d{3}-[\dKk]{1}" placeholder="XX.XXX.XXX-X" required>
+            <label for="curso">Curso:</label>
+            <select name="curso" required>
+                <option value="Prekínder">Prekínder</option>
+                <option value="Kínder">Kínder</option>
+                <option value="1ºA">1ºA</option>
+                <option value="1ºB">1ºB</option>
+                <option value="2ºA">2ºA</option>
+                <option value="2ºB">2ºB</option>
+                <option value="3ºA">3ºA</option>
+                <option value="3ºB">3ºB</option>
+                <option value="4ºA">4ºA</option>
+                <option value="4ºB">4ºB</option>
+                <option value="5ºA">5ºA</option>
+                <option value="5ºB">5ºB</option>
+                <option value="6ºA">6ºA</option>
+                <option value="6ºB">6ºB</option>
+                <option value="7ºA">7ºA</option>
+                <option value="7ºB">7ºB</option>
+                <option value="8ºA">8ºA</option>
+                <option value="8ºB">8ºB</option>
+            </select>
+            <button type="submit" name="register">Registrar</button>
+        </form>
+    </div>
+
+    <!-- Pestaña Buscar -->
+    <div class="content" id="search">
+        <h2>Buscar Alumno</h2>
+        <form method="POST">
+            <label for="search_rut">RUT del Alumno:</label>
+            <input type="text" name="search_rut" required>
+            <button type="submit">Buscar</button>
+        </form>
+    </div>
+
+    <!-- Pestaña Lista de Curso -->
+    <div class="content" id="course">
+        <h2>Lista de Alumnos por Curso</h2>
+        <form method="POST">
+            <label for="course_select">Seleccionar Curso:</label>
+            <select name="course_select" required>
+                <option value="Prekínder">Prekínder</option>
+                <option value="Kínder">Kínder</option>
+                <option value="1ºA">1ºA</option>
+                <option value="1ºB">1ºB</option>
+                <option value="2ºA">2ºA</option>
+                <option value="2ºB">2ºB</option>
+                <option value="3ºA">3ºA</option>
+                <option value="3ºB">3ºB</option>
+                <option value="4ºA">4ºA</option>
+                <option value="4ºB">4ºB</option>
+                <option value="5ºA">5ºA</option>
+                <option value="5ºB">5ºB</option>
+                <option value="6ºA">6ºA</option>
+                <option value="6ºB">6ºB</option>
+                <option value="7ºA">7ºA</option>
+                <option value="7ºB">7ºB</option>
+                <option value="8ºA">8ºA</option>
+                <option value="8ºB">8ºB</option>
+            </select>
+            <button type="submit">Mostrar Alumnos</button>
+        </form>
+    </div>
+
+    <!-- Pestaña Atrasos -->
+    <div class="content" id="delays">
+        <h2>Atrasos</h2>
+        <form method="POST">
+            <label for="alumno_rut">RUT del Alumno:</label>
+            <input type="text" name="alumno_rut" required>
+            <label for="fecha">Fecha:</label>
+            <input type="date" name="fecha" required>
+            <label for="hora">Hora:</label>
+            <input type="time" name="hora" required>
+            <label for="justificativo">Justificativo:</label>
+            <textarea name="justificativo" required></textarea>
+            <button type="submit" name="add_delay">Registrar Atraso</button>
+        </form>
+    </div>
+
+    <script>
+        function openTab(evt, tabName) {
+            var i, content, tablinks;
+            content = document.getElementsByClassName("content");
+            for (i = 0; i < content.length; i++) {
+                content[i].style.display = "none";
+            }
+            tablinks = document.getElementsByClassName("tablink");
+            for (i = 0; i < tablinks.length; i++) {
+                tablinks[i].className = tablinks[i].className.replace(" active", "");
+            }
+            document.getElementById(tabName).style.display = "block";
+            evt.currentTarget.className += " active";
+        }
+    </script>
+</body>
+</html>
