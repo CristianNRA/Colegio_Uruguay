@@ -1,0 +1,14 @@
+# Ignorar archivos y carpetas del sistema
+.DS_Store  # Para sistemas MacOS
+Thumbs.db  # Para sistemas Windows
+
+# Ignorar archivos temporales de editor
+.vscode/  # Si no deseas que VSCode guarde configuraciones en tu repositorio
+*.log  # Ignorar archivos de log
+*.tmp  # Ignorar archivos temporales
+
+# Ignorar dependencias
+node_modules/  # Si usas Node.js
+
+# Ignorar archivos de configuración de entorno
+.env  # Si usas archivos de entorno con variables secretas
